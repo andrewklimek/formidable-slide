@@ -1,0 +1,158 @@
+<?php
+/*
+Plugin Name: Formidable Slide Forms
+Description: adds slide action to a Formidable form.  Shortcode [frmslide]
+Version:     0.1
+Plugin URI:  
+Author:      Andrew J Klimek
+Author URI:  https://github.com/andrewklimek
+License:     GPL2
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+*/
+
+
+function frmslide_shortcode($a,$c=''){
+	
+	if ( strpos( $c, '[formidable') )
+		return "<p>Wrap this shortcode around a formidable form shortcode, like: [frmslide][formidable id=x][frmslide]";
+	
+	ob_start();
+	
+	?>
+	<div id=frm-form-slider>
+	<style>
+	#frm-form-slider fieldset {
+	    overflow-x: hidden;
+	}
+	#frm-form-slider .frm_fields_container {
+	    display: flex;
+	    position: relative;
+	    transition: transform 0.4s;
+	}
+	#frm-form-slider .frm_form_field {
+	    flex: 0 0 auto;
+	    width: 100% !important;
+	    padding: 0 1em;
+	}
+	
+	/* cool styling */
+	#frm-form-slider .frm_radio label.radio-selected {
+	    border: 2px solid #fe5341;
+	    /* font-weight: 700; */
+	}
+
+	#frm-form-slider .frm_radio > label {
+	    min-width: 10em;
+	    border: 1px solid currentColor;
+	    padding: 1ex;
+	    margin: 1ex 0;
+	    display: inline-block;
+	    border-radius: .3em;
+	    text-indent: 0;
+		cursor: pointer;
+	}
+	#frm-form-slider .frm_radio > label:hover {
+	    transform: translate(1px,1px);
+	}
+	#frm-form-slider .frm_radio > label:active {
+	    transform: translate(2px,2px);
+	}
+	#frm-form-slider .frm_radio input {
+/*	    display: none*/
+	}
+	</style>
+	<?php
+	
+	// process formidable shortcode to print form
+	echo do_shortcode($c);
+	
+	?>
+	<div><button id=frm-form-slider-prev>Back</button><button id=frm-form-slider-next>Next</button></div>
+	<script>(function(){
+	var track = document.querySelector('#frm-form-slider .frm_fields_container')
+		, activeAttribute = 'data-slideform'
+		, activeSlide
+		, firstSlide = 1
+		, reqFields, tmpField, tmpForm = document.createElement('form')// stuff for slide-level field validation
+		;
+
+	function nextOnChange(e){
+		!~this.className.indexOf('frm_section') && setTimeout( function(){next(0)}, 99);
+	}
+	function next(prev) {
+		activeSlide = track.querySelector('['+ activeAttribute +']') || track.firstElementChild;
+
+		// validation
+		if ( ! prev ) {
+		
+			tmpForm.innerHTML='';// clear temp form from prior use
+			reqFields = !~activeSlide.className.indexOf('frm_required_field') ? '.frm_required_field input, .frm_required_field select' : 'input, select';
+			reqFields = activeSlide.querySelectorAll(reqFields);
+			for ( var i=0; i<reqFields.length; i++) {
+				if ( reqFields[i].clientWidth ) {
+					tmpField = reqFields[i].cloneNode(true);
+					tmpField.required=true;
+					tmpForm.appendChild(tmpField);
+				}
+			}
+			if ( ! tmpForm.checkValidity() ) {
+				console.log(tmpForm);
+				console.log("required fields are not filled");
+				return;
+			}
+		}
+		
+		activeSlide.removeAttribute(activeAttribute);
+		activeSlide.removeEventListener('change',nextOnChange);
+		do {
+			activeSlide = prev ? activeSlide.previousElementSibling : activeSlide.nextElementSibling || track.firstElementChild;
+		}
+		while ( activeSlide.style.display == 'none' || ( !~activeSlide.className.indexOf('frm_form_field') && !~activeSlide.className.indexOf('frm_submit') ) );
+		
+		// disable back button on first slide
+		// mark first field
+		if ( firstSlide ) {
+			firstSlide = 0;
+			activeSlide.className += ' frm-first-slide';
+		}
+		document.getElementById('frm-form-slider-prev').disabled = ~activeSlide.className.indexOf('frm-first-slide') ? true : false;
+
+		
+		track.style.transform = 'translateX(-'+ activeSlide.offsetLeft +'px)';
+		activeSlide.setAttribute(activeAttribute,'');
+		activeSlide.addEventListener('change',nextOnChange);
+		
+		
+	}
+	
+	function disableTab(e){
+		if ( e.keyCode === 9 ) {
+			if ( null === document.querySelector('[data-slideform] .frm_form_field') )
+				next(0);
+		}
+	}
+	window.addEventListener('keyup', disableTab );
+
+	
+	document.getElementById('frm-form-slider-prev').addEventListener('click',function(){next(1)});
+	document.getElementById('frm-form-slider-next').addEventListener('click',function(){next(0)});
+	next(0);
+	
+	// styling stuff
+	jQuery('.vertical_radio').change(function(e){jQuery(this).find('label').removeClass('radio-selected'); e.target.parentElement.className += ' radio-selected'});
+	
+	})();</script>
+	</div>
+	<?php
+	
+	/*** JS before minification
+	
+	***/
+
+	
+	$return = ob_get_clean();
+		
+	return $return;
+	
+}
+add_shortcode( 'frmslide', 'frmslide_shortcode');
